@@ -40,12 +40,11 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            padding-bottom: 75px; /* Bottom Nav Offset */
+            padding-bottom: 80px;
         }
 
-        /* Mobile Top Bar */
         .app-header {
-            background: rgba(30, 41, 59, 0.8);
+            background: rgba(30, 41, 59, 0.9);
             backdrop-filter: blur(10px);
             position: sticky;
             top: 0;
@@ -84,7 +83,6 @@
             width: 100%;
         }
 
-        /* Status Banner */
         .status-banner {
             padding: 16px;
             border-radius: 16px;
@@ -110,7 +108,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Cards & Metrics */
         .metric-card {
             background: var(--card-bg);
             border-radius: 20px;
@@ -175,7 +172,6 @@
             font-weight: 700;
         }
 
-        /* Hardware Simulator Panel */
         .controls-card {
             background: var(--card-bg);
             padding: 16px;
@@ -220,9 +216,10 @@
             background: var(--card-bg);
             padding: 16px;
             border-radius: 16px;
+            height: 220px;
+            position: relative;
         }
 
-        /* Bottom Tab Navigation */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -296,7 +293,9 @@
 
         <div class="chart-card">
             <div class="actuator-title" style="margin-bottom: 10px;">PPM TREND LOG</div>
-            <canvas id="gasChart"></canvas>
+            <div style="position: relative; height: 160px; width: 100%;">
+                <canvas id="gasChart"></canvas>
+            </div>
         </div>
 
         <div class="controls-card">
@@ -320,7 +319,7 @@
             <i class="fa-solid fa-gas-pump"></i>
             <span>Agency</span>
         </a>
-        <a href="#" class="nav-item" onclick="alert('Telegram Alerts Connected to Chat ID: 5318771610')">
+        <a href="#" class="nav-item" onclick="alert('Telegram Alerts Active for ID: 5318771610')">
             <i class="fa-solid fa-bell"></i>
             <span>Alerts</span>
         </a>
@@ -338,24 +337,25 @@
         let loopInterval = null;
         let alertSent = false;
 
-        // 2. TELEGRAM ALERT FUNCTION
+        // 2. BULLETPROOF TELEGRAM ALERT FUNCTION (Uses Image Ping)
         function sendTelegramAlert(ppmValue) {
             if (alertSent) return;
 
             const botToken = "8932049829:AAFBM3NXe_tRAxZjakxlWCJ177EKZ2Tg15I"; 
             const chatId = "5318771610";
-            const text = `🚨 *CRITICAL LPG EMERGENCY DETECTED!*\n\n📍 *Location:* Charholi, Pune\n📊 *Gas Level:* ${ppmValue} PPM\n⚠️ *Auto Actions:* Servo Closed Regulator Valve, Exhaust Fan Turned ON.`;
+            const textMessage = "🚨 EMERGENCY LPG LEAK DETECTED! Level: " + ppmValue + " PPM. Location: Charholi, Pune. Servo Regulator CLOSED. Fan ON.";
 
-            const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}&parse_mode=Markdown`;
+            const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(textMessage)}`;
 
-            fetch(url, { mode: 'no-cors' })
-                .then(() => console.log("📲 Telegram alert sent!"))
-                .catch(err => console.error("Error:", err));
+            // Image Ping prevents cross-origin and fetch errors
+            const img = new Image();
+            img.src = url;
 
+            console.log("📲 Telegram Alert Fired!");
             alertSent = true;
         }
 
-        // 3. HARDWARE SIMULATOR FUNCTION
+        // 3. SIMULATOR WRITE FUNCTION
         function setGasLevel(ppm) {
             let status = "SYSTEM SECURE";
             let servo = "OPEN";
@@ -398,27 +398,37 @@
             }
         }
 
-        // 4. CHART SETUP
+        // 4. CHART SETUP (With proper axes enabled)
         const ctx = document.getElementById('gasChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
             data: { 
-                labels: [], 
+                labels: ['Start'], 
                 datasets: [{ 
-                    label: 'PPM Level', 
-                    data: [], 
+                    label: 'PPM', 
+                    data: [180], 
                     borderColor: '#38bdf8', 
-                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.3,
+                    borderWidth: 2
                 }] 
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { display: false },
-                    y: { min: 100, max: 1000, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    x: {
+                        ticks: { color: '#94a3b8', font: { size: 9 } },
+                        grid: { display: false }
+                    },
+                    y: { 
+                        min: 100, 
+                        max: 1000, 
+                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' } 
+                    }
                 }
             }
         });
@@ -435,4 +445,25 @@
 
             const banner = document.getElementById('status-banner');
             banner.innerHTML = `<i class="fa-solid ${data.gasLevelPPM > 700 ? 'fa-triangle-exclamation' : (data.gasLevelPPM > 400 ? 'fa-circle-exclamation' : 'fa-circle-check')}"></i> ${data.aiRiskStatus}`;
-            banner.className = 'status-banner ' + (data.gasLevelPPM > 700 ? 'bg-critical' : (data.gasLevelPPM > 400 ? 'bg-
+            banner.className = 'status-banner ' + (data.gasLevelPPM > 700 ? 'bg-critical' : (data.gasLevelPPM > 400 ? 'bg-warning' : 'bg-secure'));
+
+            // Chart update logic
+            const timeLabel = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (chart.data.labels.length > 8) { 
+                chart.data.labels.shift(); 
+                chart.data.datasets[0].data.shift(); 
+            }
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(data.gasLevelPPM);
+            chart.update();
+
+            // Emergency Trigger
+            if (data.gasLevelPPM > 700) {
+                sendTelegramAlert(data.gasLevelPPM);
+            } else {
+                alertSent = false;
+            }
+        });
+    </script>
+</body>
+</html>
