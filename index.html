@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart LPG Monitor</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
@@ -39,10 +40,10 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            padding-bottom: 75px; /* Space for Mobile Bottom Nav */
+            padding-bottom: 75px; /* Bottom Nav Offset */
         }
 
-        /* Mobile Header App Bar */
+        /* Mobile Top Bar */
         .app-header {
             background: rgba(30, 41, 59, 0.8);
             backdrop-filter: blur(10px);
@@ -83,7 +84,7 @@
             width: 100%;
         }
 
-        /* Emergency Status Banner */
+        /* Status Banner */
         .status-banner {
             padding: 16px;
             border-radius: 16px;
@@ -109,7 +110,7 @@
             100% { transform: scale(1); }
         }
 
-        /* Metric Gauge Card */
+        /* Cards & Metrics */
         .metric-card {
             background: var(--card-bg);
             border-radius: 20px;
@@ -137,7 +138,6 @@
             letter-spacing: 1px;
         }
 
-        /* Actuator Grid List */
         .actuator-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -175,7 +175,7 @@
             font-weight: 700;
         }
 
-        /* App Button Group */
+        /* Hardware Simulator Panel */
         .controls-card {
             background: var(--card-bg);
             padding: 16px;
@@ -208,7 +208,6 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            transition: active 0.1s;
         }
 
         .app-btn:active { transform: scale(0.98); }
@@ -217,14 +216,13 @@
         .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
         .btn-auto { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
 
-        /* Chart Card */
         .chart-card {
             background: var(--card-bg);
             padding: 16px;
             border-radius: 16px;
         }
 
-        /* Bottom App Navigation Bar */
+        /* Bottom Tab Navigation */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -322,14 +320,14 @@
             <i class="fa-solid fa-gas-pump"></i>
             <span>Agency</span>
         </a>
-        <a href="#" class="nav-item" onclick="alert('Telegram Alerts Connected to ID: 5318771610')">
+        <a href="#" class="nav-item" onclick="alert('Telegram Alerts Connected to Chat ID: 5318771610')">
             <i class="fa-solid fa-bell"></i>
             <span>Alerts</span>
         </a>
     </nav>
 
     <script>
-        // 1. FIREBASE CONFIGURATION
+        // 1. FIREBASE CONFIG
         const firebaseConfig = {
             databaseURL: "https://smart-lpg-system-85123-default-rtdb.firebaseio.com/"
         };
@@ -357,7 +355,7 @@
             alertSent = true;
         }
 
-        // 3. SIMULATOR WRITE FUNCTION
+        // 3. HARDWARE SIMULATOR FUNCTION
         function setGasLevel(ppm) {
             let status = "SYSTEM SECURE";
             let servo = "OPEN";
@@ -425,7 +423,7 @@
             }
         });
 
-        // 5. FIREBASE LISTENER
+        // 5. FIREBASE REALTIME LISTENER
         database.ref('lpg_system/live_status').on('value', (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
@@ -437,22 +435,4 @@
 
             const banner = document.getElementById('status-banner');
             banner.innerHTML = `<i class="fa-solid ${data.gasLevelPPM > 700 ? 'fa-triangle-exclamation' : (data.gasLevelPPM > 400 ? 'fa-circle-exclamation' : 'fa-circle-check')}"></i> ${data.aiRiskStatus}`;
-            banner.className = 'status-banner ' + (data.gasLevelPPM > 700 ? 'bg-critical' : (data.gasLevelPPM > 400 ? 'bg-warning' : 'bg-secure'));
-
-            if (chart.data.labels.length > 10) { 
-                chart.data.labels.shift(); 
-                chart.data.datasets[0].data.shift(); 
-            }
-            chart.data.labels.push(new Date(data.timestamp).toLocaleTimeString());
-            chart.data.datasets[0].data.push(data.gasLevelPPM);
-            chart.update();
-
-            if (data.gasLevelPPM > 700) {
-                sendTelegramAlert(data.gasLevelPPM);
-            } else {
-                alertSent = false;
-            }
-        });
-    </script>
-</body>
-</html>
+            banner.className = 'status-banner ' + (data.gasLevelPPM > 700 ? 'bg-critical' : (data.gasLevelPPM > 400 ? 'bg-
