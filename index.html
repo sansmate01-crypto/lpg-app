@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart LPG Monitor</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-blue: #38bdf8;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding-bottom: 75px; /* Space for Mobile Bottom Nav */
+        }
+
+        /* Mobile Header App Bar */
+        .app-header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .app-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-status-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .app-container {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Emergency Status Banner */
+        .status-banner {
+            padding: 16px;
+            border-radius: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .bg-secure { background: var(--success); color: #022c22; }
+        .bg-warning { background: var(--warning); color: #451a03; }
+        .bg-critical { background: var(--danger); color: #450a0a; animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        /* Metric Gauge Card */
+        .metric-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .metric-value {
+            font-size: 48px;
+            font-weight: 800;
+            color: var(--accent-blue);
+            margin: 10px 0 5px 0;
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Actuator Grid List */
+        .actuator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .actuator-card {
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .actuator-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .actuator-title {
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        .actuator-state {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        /* App Button Group */
+        .controls-card {
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        .controls-card h3 {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .app-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: active 0.1s;
+        }
+
+        .app-btn:active { transform: scale(0.98); }
+        .btn-safe { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .btn-warn { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .btn-auto { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
+
+        /* Chart Card */
+        .chart-card {
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        /* Bottom App Navigation Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0 16px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-sub);
+            font-size: 10px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-item.active { color: var(--accent-blue); }
+        .nav-item i { font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <h1><i class="fa-solid fa-shield-halved" style="color: var(--accent-blue);"></i> LPG Safety</h1>
+        <div id="connection-badge" class="header-status-badge">ONLINE</div>
+    </header>
+
+    <main class="app-container">
+        
+        <div id="status-banner" class="status-banner bg-secure">
+            <i class="fa-solid fa-circle-check"></i> SYSTEM SECURE
+        </div>
+
+        <div class="metric-card">
+            <div class="actuator-title">GAS CONCENTRATION</div>
+            <div id="ppm-val" class="metric-value">180</div>
+            <div class="metric-unit">PPM</div>
+        </div>
+
+        <div class="actuator-grid">
+            <div class="actuator-card">
+                <div class="actuator-icon"><i class="fa-solid fa-faucet-drip"></i></div>
+                <div class="actuator-title">Smart Regulator</div>
+                <div id="servo-val" class="actuator-state">OPEN</div>
+            </div>
+            <div class="actuator-card">
+                <div class="actuator-icon"><i class="fa-solid fa-fan"></i></div>
+                <div class="actuator-title">Exhaust Fan</div>
+                <div id="fan-val" class="actuator-state">OFF</div>
+            </div>
+            <div class="actuator-card">
+                <div class="actuator-icon"><i class="fa-solid fa-building-shield"></i></div>
+                <div class="actuator-title">Agency Alert</div>
+                <div id="alert-val" class="actuator-state">NO</div>
+            </div>
+            <div class="actuator-card">
+                <div class="actuator-icon"><i class="fa-solid fa-id-card"></i></div>
+                <div class="actuator-title">Cylinder ID</div>
+                <div id="cyl-id" class="actuator-state" style="font-size: 13px;">HP12345678</div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="actuator-title" style="margin-bottom: 10px;">PPM TREND LOG</div>
+            <canvas id="gasChart"></canvas>
+        </div>
+
+        <div class="controls-card">
+            <h3><i class="fa-solid fa-sliders"></i> Hardware Simulator</h3>
+            <div class="btn-group">
+                <button class="app-btn btn-safe" onclick="setGasLevel(180)"><i class="fa-solid fa-leaf"></i> Normal (180 PPM)</button>
+                <button class="app-btn btn-warn" onclick="setGasLevel(450)"><i class="fa-solid fa-triangle-exclamation"></i> Moderate Leak (450 PPM)</button>
+                <button class="app-btn btn-danger" onclick="setGasLevel(850)"><i class="fa-solid fa-fire"></i> Heavy Leak / Fire (850 PPM)</button>
+                <button class="app-btn btn-auto" onclick="toggleAutoSim()"><i class="fa-solid fa-rotate"></i> Auto-Loop: <span id="auto-state">OFF</span></button>
+            </div>
+        </div>
+
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active">
+            <i class="fa-solid fa-house"></i>
+            <span>Monitor</span>
+        </a>
+        <a href="#" class="nav-item" onclick="alert('Cylinder Registered: HP12345678\nOwner: Sanskruti Mate\nAddress: Charholi, Pune')">
+            <i class="fa-solid fa-gas-pump"></i>
+            <span>Agency</span>
+        </a>
+        <a href="#" class="nav-item" onclick="alert('Telegram Alerts Connected to ID: 5318771610')">
+            <i class="fa-solid fa-bell"></i>
+            <span>Alerts</span>
+        </a>
+    </nav>
+
+    <script>
+        // 1. FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            databaseURL: "https://smart-lpg-system-85123-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let autoLoop = false;
+        let loopInterval = null;
+        let alertSent = false;
+
+        // 2. TELEGRAM ALERT FUNCTION
+        function sendTelegramAlert(ppmValue) {
+            if (alertSent) return;
+
+            const botToken = "8932049829:AAFBM3NXe_tRAxZjakxlWCJ177EKZ2Tg15I"; 
+            const chatId = "5318771610";
+            const text = `🚨 *CRITICAL LPG EMERGENCY DETECTED!*\n\n📍 *Location:* Charholi, Pune\n📊 *Gas Level:* ${ppmValue} PPM\n⚠️ *Auto Actions:* Servo Closed Regulator Valve, Exhaust Fan Turned ON.`;
+
+            const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}&parse_mode=Markdown`;
+
+            fetch(url, { mode: 'no-cors' })
+                .then(() => console.log("📲 Telegram alert sent!"))
+                .catch(err => console.error("Error:", err));
+
+            alertSent = true;
+        }
+
+        // 3. SIMULATOR WRITE FUNCTION
+        function setGasLevel(ppm) {
+            let status = "SYSTEM SECURE";
+            let servo = "OPEN";
+            let fan = "OFF";
+            let alertAgency = "NO";
+
+            if (ppm > 700) {
+                status = "CRITICAL EMERGENCY";
+                servo = "SHUT_OFF";
+                fan = "ON (MAX)";
+                alertAgency = "YES (SENT)";
+            } else if (ppm > 400) {
+                status = "WARNING - ELEVATED PPM";
+                servo = "OPEN";
+                fan = "ON (LOW)";
+                alertAgency = "NO";
+            }
+
+            database.ref('lpg_system/live_status').set({
+                cylinderID: "HP12345678",
+                gasLevelPPM: ppm,
+                aiRiskStatus: status,
+                servoRegulator: servo,
+                fanState: fan,
+                agencyAlert: alertAgency,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        function toggleAutoSim() {
+            autoLoop = !autoLoop;
+            document.getElementById('auto-state').innerText = autoLoop ? "ON" : "OFF";
+            if (autoLoop) {
+                loopInterval = setInterval(() => {
+                    let randomPPM = Math.floor(Math.random() * (900 - 150 + 1)) + 150;
+                    setGasLevel(randomPPM);
+                }, 3000);
+            } else {
+                clearInterval(loopInterval);
+            }
+        }
+
+        // 4. CHART SETUP
+        const ctx = document.getElementById('gasChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    label: 'PPM Level', 
+                    data: [], 
+                    borderColor: '#38bdf8', 
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }] 
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { min: 100, max: 1000, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+
+        // 5. FIREBASE LISTENER
+        database.ref('lpg_system/live_status').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            document.getElementById('ppm-val').innerText = data.gasLevelPPM;
+            document.getElementById('servo-val').innerText = data.servoRegulator;
+            document.getElementById('fan-val').innerText = data.fanState;
+            document.getElementById('alert-val').innerText = data.agencyAlert;
+
+            const banner = document.getElementById('status-banner');
+            banner.innerHTML = `<i class="fa-solid ${data.gasLevelPPM > 700 ? 'fa-triangle-exclamation' : (data.gasLevelPPM > 400 ? 'fa-circle-exclamation' : 'fa-circle-check')}"></i> ${data.aiRiskStatus}`;
+            banner.className = 'status-banner ' + (data.gasLevelPPM > 700 ? 'bg-critical' : (data.gasLevelPPM > 400 ? 'bg-warning' : 'bg-secure'));
+
+            if (chart.data.labels.length > 10) { 
+                chart.data.labels.shift(); 
+                chart.data.datasets[0].data.shift(); 
+            }
+            chart.data.labels.push(new Date(data.timestamp).toLocaleTimeString());
+            chart.data.datasets[0].data.push(data.gasLevelPPM);
+            chart.update();
+
+            if (data.gasLevelPPM > 700) {
+                sendTelegramAlert(data.gasLevelPPM);
+            } else {
+                alertSent = false;
+            }
+        });
+    </script>
+</body>
+</html>
